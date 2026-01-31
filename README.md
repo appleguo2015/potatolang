@@ -24,6 +24,12 @@ sudo apt-get install libsdl2-dev
 clang++ -std=c++17 main.cpp -o potatolang $(pkg-config --cflags --libs sdl2)
 ```
 
+### 编译 Tomato Editor
+
+```bash
+clang++ -std=c++17 tomato/main.cpp -o tomato/tomato $(pkg-config --cflags --libs sdl2)
+```
+
 ## 使用方法
 
 ### 1. 解释执行
@@ -66,6 +72,24 @@ clang++ -std=c++17 main.cpp -o potatolang $(pkg-config --cflags --libs sdl2)
 ```bash
 ./potatolang script.pt
 ```
+
+### 4. 原生编辑器 (Native Editor)
+
+启动独立的 Tomato C++ 原生代码编辑器：
+
+```bash
+./tomato/tomato script.pt
+```
+
+此编辑器支持：
+- **语法高亮**：支持关键字、字符串、数字和注释的高亮显示。
+- **行号显示**：左侧显示行号。
+- **输出面板**：直接在编辑器内查看运行结果。
+
+快捷键：
+- **F2**: 保存文件。
+- **F5**: 保存并运行当前脚本（显示输出面板）。
+- **Esc**: 关闭输出面板或退出编辑器。
 
 ## 语言特性
 

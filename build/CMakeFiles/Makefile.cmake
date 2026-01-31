@@ -21,6 +21,9 @@ set(CMAKE_MAKEFILE_DEPENDS
   "/usr/local/share/cmake/Modules/Compiler/CMakeCommonCompilerMacros.cmake"
   "/usr/local/share/cmake/Modules/Compiler/Clang.cmake"
   "/usr/local/share/cmake/Modules/Compiler/GNU.cmake"
+  "/usr/local/share/cmake/Modules/FindPackageHandleStandardArgs.cmake"
+  "/usr/local/share/cmake/Modules/FindPackageMessage.cmake"
+  "/usr/local/share/cmake/Modules/FindPkgConfig.cmake"
   "/usr/local/share/cmake/Modules/Internal/CMakeCXXLinkerInformation.cmake"
   "/usr/local/share/cmake/Modules/Internal/CMakeCommonLinkerInformation.cmake"
   "/usr/local/share/cmake/Modules/Linker/AppleClang-CXX.cmake"
@@ -49,4 +52,5 @@ set(CMAKE_MAKEFILE_PRODUCTS
 # Dependency information for all targets:
 set(CMAKE_DEPEND_INFO_FILES
   "CMakeFiles/potatolang.dir/DependInfo.cmake"
+  "CMakeFiles/tomato.dir/DependInfo.cmake"
   )

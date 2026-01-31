@@ -1239,12 +1239,41 @@ class Interpreter {
       return Value::Number(dist(rng));
     });
     
+    // Execute a shell command and return its output
+    add("exec", 1, [&](const std::vector<Value>& args) {
+        std::string cmd = AsString(args[0]);
+        std::array<char, 128> buffer;
+        std::string result;
+        // Use popen to capture output
+        std::unique_ptr<FILE, decltype(&pclose)> pipe(popen(cmd.c_str(), "r"), pclose);
+        if (!pipe) {
+            return Value::Str("popen() failed!");
+        }
+        while (fgets(buffer.data(), buffer.size(), pipe.get()) != nullptr) {
+            result += buffer.data();
+        }
+        return Value::Str(result);
+    });
+
     // Returns current timestamp in seconds.
     add("time", 0, [&](const std::vector<Value>&) {
         auto now = std::chrono::system_clock::now();
         auto duration = now.time_since_epoch();
         double seconds = std::chrono::duration_cast<std::chrono::duration<double>>(duration).count();
         return Value::Number(seconds);
+    });
+
+    // Returns a string containing a single character with the given ASCII code.
+    add("char", 1, [&](const std::vector<Value>& args) {
+        int code = static_cast<int>(AsNumber(args[0]));
+        return Value::Str(std::string(1, static_cast<char>(code)));
+    });
+
+    // Execute a system command
+    add("system", 1, [&](const std::vector<Value>& args) {
+        std::string cmd = AsString(args[0]);
+        int ret = std::system(cmd.c_str());
+        return Value::Number(static_cast<double>(ret));
     });
 
     // Initialize Graphics Window
@@ -1659,6 +1688,7 @@ static int RunScript(const std::string& scriptSource, const std::string& input, 
   }
 }
 
+
 }  // namespace potatolang
 
 #ifdef POTATO_STANDALONE
@@ -1701,6 +1731,7 @@ static void ReplaceAll(std::string& str, const std::string& from, const std::str
 
 int main(int argc, char** argv) {
   try {
+
     // Compilation mode: ./potatolang <script> --out <binary>
     if (argc >= 4 && std::string(argv[2]) == "--out") {
       std::string sourcePath = argv[1];

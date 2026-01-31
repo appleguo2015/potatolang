@@ -1,16 +1,54 @@
 import "potato_ui.pt";
+import "potato_file.pt";
 import "./tomato/highlighter.pt";
 
 // Editor Module
 // Manages buffer and input
 
-fun create_editor(lines, syntax_config) {
+fun create_editor(lines, syntax_config, filename) {
   let ed = list();
   push(ed, lines); // 0: lines
   push(ed, 0);     // 1: cx
   push(ed, 0);     // 2: cy
   push(ed, syntax_config); // 3: syntax
+  push(ed, filename); // 4: filename
+  push(ed, ""); // 5: status message
+  push(ed, 0); // 6: status time
+  push(ed, ""); // 7: output buffer
+  push(ed, false); // 8: show output
   return ed;
+}
+
+fun editor_set_status(ed, msg) {
+  set(ed, 5, msg);
+  set(ed, 6, time());
+}
+
+fun editor_save(ed) {
+  let lines = get(ed, 0);
+  let filename = get(ed, 4);
+  let content = "";
+  let i = 0;
+  while (i < len(lines)) {
+     content = content + get(lines, i) + "\n";
+     i = i + 1;
+  }
+  if (file_write(filename, content)) {
+     editor_set_status(ed, "Saved to " + filename);
+  } else {
+     editor_set_status(ed, "Failed to save " + filename);
+  }
+}
+
+fun editor_run(ed) {
+  editor_save(ed);
+  let filename = get(ed, 4);
+  editor_set_status(ed, "Running " + filename + "...");
+  
+  // Capture output
+  let output = exec("./potatolang --run " + filename);
+  set(ed, 7, output);
+  set(ed, 8, true); // Show output
 }
 
 fun editor_draw(ed) {
@@ -18,30 +56,114 @@ fun editor_draw(ed) {
   let cx = get(ed, 1);
   let cy = get(ed, 2);
   let syntax = get(ed, 3);
+  let filename = get(ed, 4);
+  let status = get(ed, 5);
+  let status_time = get(ed, 6);
+  let output = get(ed, 7);
+  let show_output = get(ed, 8);
   
   ui_clear();
   
-  // Draw content
+  // Layout: Editor takes top 70%, Output takes bottom 30% if shown
+  let view_h = 25; // Approximate lines
+  if (show_output) {
+      view_h = 18;
+  }
+  
+  // Draw Editor content
   let i = 0;
+  // TODO: Add scrolling offset logic later
+  // For now just draw first view_h lines
   while (i < len(lines)) {
-     draw_line_highlighted(1, i + 1, get(lines, i), syntax);
+     if (i < view_h) {
+         // Line number
+         ui_color(7, 7); // Gray on White (Wait, 7 is White, Gray is not in palette easily... use 0 for black)
+         // Let's use Black on White for line numbers too, maybe formatted
+         ui_move(1, i + 1);
+         ui_color(0, 7);
+         let lineno = to_string(i + 1);
+         if (len(lineno) < 3) { lineno = " " + lineno; }
+         if (len(lineno) < 3) { lineno = " " + lineno; }
+         ui_write(lineno + " ");
+         
+         // Code
+         draw_line_highlighted(5, i + 1, get(lines, i), syntax);
+     }
      i = i + 1;
   }
   
-  // Draw status bar
-  ui_move(1, 20);
-  ui_color(0, 7); // Black on White
-  ui_write(" Tomato Editor | " + to_string(cx) + ":" + to_string(cy) + " | Escape to Quit ");
-  ui_reset();
+  // Draw Output Panel
+  if (show_output) {
+      // Draw divider
+      ui_move(1, view_h + 1);
+      ui_color(7, 0); // White on Black for divider
+      ui_write(" Output: " + filename + " (F5 to run, Esc to close output) " + "----------------------------------------");
+      
+      // Draw output text
+      ui_color(0, 7); // Black on White
+      // Split output by newline for drawing
+      let out_lines = list();
+      let j = 0;
+      let start = 0;
+      let nl = char(10);
+      let len_out = len(output);
+      while (j < len_out) {
+          if (char_at(output, j) == nl) {
+              push(out_lines, substr(output, start, j - start));
+              start = j + 1;
+          }
+          j = j + 1;
+      }
+      if (start < len_out) {
+          push(out_lines, substr(output, start, len_out - start));
+      }
+      
+      let k = 0;
+      while (k < len(out_lines)) {
+          if (k < 10) { // Max 10 lines of output
+              ui_move(1, view_h + 2 + k);
+              ui_write(get(out_lines, k));
+          }
+          k = k + 1;
+      }
+  }
   
-  // Place cursor
-  ui_move(cx + 1, cy + 1);
+  // Draw status bar
+  // ui_move(1, 30); // Move to bottom (approx)
+  // Let's assume bottom is line 30
+  
+  // Place cursor (Blinking)
+  if (!show_output) { // Only draw cursor if focused on editor
+      let t = time();
+      let blink = int(t * 2); 
+      let mod = blink - (blink / 2 * 2);
+      
+      if (mod == 0) {
+          ui_draw_cursor(cx + 5, cy + 1); // Offset for line numbers
+      }
+  }
 }
 
 fun editor_handle_input(ed, key) {
   let lines = get(ed, 0);
   let cx = get(ed, 1);
   let cy = get(ed, 2);
+  let show_output = get(ed, 8);
+  
+  // Commands
+  if (key == "F2") { editor_save(ed); return true; }
+  if (key == "F5") { editor_run(ed); return true; }
+  
+  // If output is shown, Esc closes it
+  if (show_output) {
+      if (key == "Escape") {
+          set(ed, 8, false);
+          return true;
+      }
+      // Eat other keys or allow navigation?
+      // For now, let's just allow closing output
+      return true; 
+  }
   
   // Navigation
   if (key == "Up") { cy = cy - 1; }

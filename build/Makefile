@@ -129,6 +129,19 @@ potatolang/fast:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/potatolang.dir/build.make CMakeFiles/potatolang.dir/build
 .PHONY : potatolang/fast
 
+#=============================================================================
+# Target rules for targets named tomato
+
+# Build rule for target.
+tomato: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 tomato
+.PHONY : tomato
+
+# fast build rule for target.
+tomato/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/tomato.dir/build.make CMakeFiles/tomato.dir/build
+.PHONY : tomato/fast
+
 main.o: main.cpp.o
 .PHONY : main.o
 
@@ -153,6 +166,30 @@ main.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/potatolang.dir/build.make CMakeFiles/potatolang.dir/main.cpp.s
 .PHONY : main.cpp.s
 
+tomato/main.o: tomato/main.cpp.o
+.PHONY : tomato/main.o
+
+# target to build an object file
+tomato/main.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/tomato.dir/build.make CMakeFiles/tomato.dir/tomato/main.cpp.o
+.PHONY : tomato/main.cpp.o
+
+tomato/main.i: tomato/main.cpp.i
+.PHONY : tomato/main.i
+
+# target to preprocess a source file
+tomato/main.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/tomato.dir/build.make CMakeFiles/tomato.dir/tomato/main.cpp.i
+.PHONY : tomato/main.cpp.i
+
+tomato/main.s: tomato/main.cpp.s
+.PHONY : tomato/main.s
+
+# target to generate assembly for a file
+tomato/main.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/tomato.dir/build.make CMakeFiles/tomato.dir/tomato/main.cpp.s
+.PHONY : tomato/main.cpp.s
+
 # Help Target
 help:
 	@echo "The following are some of the valid targets for this Makefile:"
@@ -162,9 +199,13 @@ help:
 	@echo "... edit_cache"
 	@echo "... rebuild_cache"
 	@echo "... potatolang"
+	@echo "... tomato"
 	@echo "... main.o"
 	@echo "... main.i"
 	@echo "... main.s"
+	@echo "... tomato/main.o"
+	@echo "... tomato/main.i"
+	@echo "... tomato/main.s"
 .PHONY : help
 
 

@@ -1,3 +1,4 @@
 /Users/jerry/potatolang/build/CMakeFiles/potatolang.dir
+/Users/jerry/potatolang/build/CMakeFiles/tomato.dir
 /Users/jerry/potatolang/build/CMakeFiles/edit_cache.dir
 /Users/jerry/potatolang/build/CMakeFiles/rebuild_cache.dir

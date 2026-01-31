@@ -1,1 +1,1 @@
-/usr/bin/c++ -Wl,-search_paths_first -Wl,-headerpad_max_install_names CMakeFiles/potatolang.dir/main.cpp.o -o potatolang
+/usr/bin/c++ -Wl,-search_paths_first -Wl,-headerpad_max_install_names CMakeFiles/potatolang.dir/main.cpp.o -o potatolang  -lSDL2

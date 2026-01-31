@@ -1,4 +1,5 @@
 import "potato_ui.pt";
+import "potato_file.pt";
 import "./tomato/editor.pt";
 import "./tomato/syntax_loader.pt";
 
@@ -7,10 +8,7 @@ import "./tomato/syntax_loader.pt";
 // Init Graphics Window
 if (!ui_init_window(800, 600, "Tomato Editor")) {
   print "Failed to init graphics";
-  // We can't return from top-level script easily, just exit loop
 } else {
-
-  let args = list(); 
 
   let filename = "test.pt";
   let syntax_file = "tomato/potatolang.potato";
@@ -24,15 +22,40 @@ if (!ui_init_window(800, 600, "Tomato Editor")) {
     print "Syntax loaded.";
   }
 
-  // Initial Buffer
+  // Load File
   let lines = list();
-  push(lines, "fun main() {");
-  push(lines, "  print \"Hello Tomato\";");
-  push(lines, "  let x = 10;");
-  push(lines, "  // This is a comment");
-  push(lines, "}");
+  if (file_exists(filename)) {
+      print "Loading " + filename + "...";
+      let content = file_read(filename);
+      if (content == nil) { content = ""; }
+      
+      // Split by newline
+      let i = 0;
+      let start = 0;
+      let nl = char(10);
+      let len_content = len(content);
+      
+      while (i < len_content) {
+          if (char_at(content, i) == nl) {
+              push(lines, substr(content, start, i - start));
+              start = i + 1;
+          }
+          i = i + 1;
+      }
+      // Push last line if any
+      if (start < len_content) {
+          push(lines, substr(content, start, len_content - start));
+      }
+      
+      if (len(lines) == 0) { push(lines, ""); } 
+  } else {
+      print "New file: " + filename;
+      push(lines, "fun main() {");
+      push(lines, "  print \"Hello Tomato\";");
+      push(lines, "}");
+  }
 
-  let editor = create_editor(lines, syntax_config);
+  let editor = create_editor(lines, syntax_config, filename);
   let running = true;
 
   while (running) {
