@@ -1,0 +1,8 @@
+[
+{
+  "directory": "/Users/jerry/potatolang/build",
+  "command": "/usr/bin/c++   -std=c++17 -o CMakeFiles/potatolang.dir/main.cpp.o -c /Users/jerry/potatolang/main.cpp",
+  "file": "/Users/jerry/potatolang/main.cpp",
+  "output": "CMakeFiles/potatolang.dir/main.cpp.o"
+}
+]
