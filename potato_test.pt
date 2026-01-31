@@ -1,0 +1,6 @@
+import "pio.pt";
+fun main(){
+  let a = "wow";
+  print a;
+}
+main();

@@ -99,6 +99,21 @@ clang++ -std=c++17 tomato/main.cpp -o tomato/tomato $(pkg-config --cflags --libs
 - 模块与IO: `import`, `print`
 - 逻辑运算: `true`, `false`, `nil`, `and`, `or`
 
+## 标准库 (Standard Library)
+
+### IO 模块 (`potatos/pio.pt`)
+提供基础的输入输出功能：
+- `pio_println(x)`: 打印值并换行。
+- `pio_print(x)`: 打印值但不换行。
+- `pio_read_all()`: 读取所有输入（优先读取命令行输入文件，若无则读取标准输入）。
+- `pio_read_line()`: 从标准输入读取一行。
+
+使用方式：
+```javascript
+import "pio.pt";
+pio_println("Hello World");
+```
+
 ### 内置函数
 
 #### 图形界面 (SDL2)

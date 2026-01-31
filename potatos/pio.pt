@@ -12,5 +12,19 @@ fun pio_print(x) {
 
 // Return the entire input as a string
 fun pio_read_all() {
-  return input;
+  if (len(input) > 0) {
+    return input;
+  }
+  let content = "";
+  let line = read_line();
+  while (line != nil) {
+    content = content + line + "\n";
+    line = read_line();
+  }
+  return content;
+}
+
+// Read a single line from input
+fun pio_read_line() {
+  return read_line();
 }
