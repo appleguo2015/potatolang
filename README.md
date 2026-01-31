@@ -1,104 +1,101 @@
 # potatolang
 
-这是一个用 C++ 实现的最小可用 potatolang：包含词法分析 + 递归下降语法分析，读取源码后输出 AST（S-expression 形式）。
+这是一个用 C++ 实现的 Potatolang 解释器与编译器。它不仅支持生成 AST，还支持直接解释执行以及编译为独立二进制文件。
 
 ## 构建
+
+### 使用 CMake
 
 ```bash
 cmake -S . -B build
 cmake --build build -j
 ```
 
-## 运行
-
-从文件读取：
+### 直接编译
 
 ```bash
-./build/potatolang path/to/file.pt
+clang++ -std=c++17 -o potatolang main.cpp
 ```
 
-从标准输入读取：
+## 使用方法
+
+### 1. 解释执行
+
+直接运行 Potatolang 脚本：
 
 ```bash
-printf 'let x = 1 + 2 * 3;\nprint x == 7;\n' | ./build/potatolang
+./potatolang --run script.pt [input_file]
 ```
 
-输出是 AST，例如：
+- `script.pt`: 源代码文件。
+- `input_file`: (可选) 作为标准输入提供给脚本的数据文件。如果不提供，默认为空输入。若要从管道读取标准输入，请使用 `-`。
 
-```lisp
-(program (let x (+ 1 (* 2 3))) (print (== x 7)))
+示例：
+
+```bash
+./potatolang --run hw.pt
 ```
 
-## 词法（Token）
+### 2. 编译为独立二进制
+
+将脚本编译为可独立运行的可执行文件（无需依赖 `potatolang` 主程序，但可能依赖标准库文件如 `pio.pt`）：
+
+```bash
+./potatolang script.pt --out binary_name
+```
+
+示例：
+
+```bash
+./potatolang hw.pt --out hw
+./hw
+```
+
+### 3. 解析并输出 AST
+
+仅进行词法和语法分析，输出 S-expression 形式的抽象语法树（AST）：
+
+```bash
+./potatolang script.pt
+```
+
+或者从标准输入读取：
+
+```bash
+echo 'print "hello";' | ./potatolang
+```
+
+## 语言特性
 
 ### 关键字
 
-- `let`
-- `print`
+- 变量与函数: `let`, `fun`, `return`
+- 控制流: `if`, `else`, `while`
+- 模块与IO: `import`, `print`
+- 逻辑运算: `true`, `false`, `nil`, `and`, `or`
 
-### 字面量与标识符
+### 语法示例
 
-- 数字：`123`、`3.14`
-- 字符串：`"hello"`，支持转义：`\\n`、`\\t`、`\\"`、`\\\\`
-- 标识符：以字母或 `_` 开头，后续可包含数字，例如：`abc`、`_tmp1`
+```potato
+// 导入库
+import "pio.pt";
 
-### 运算符与符号
+// 定义递归函数
+fun fib(n) {
+  if (n < 2) return n;
+  return fib(n - 1) + fib(n - 2);
+}
 
-- 括号：`(` `)`
-- 语句结尾：`;`
-- 运算符：`+ - * / ! = < >`
-- 双字符运算符：`== != <= >=`
-
-### 空白与注释
-
-- 空白：空格、制表符、换行会被忽略（用于分隔 token）
-- 行注释：`//` 到行尾
-
-## 语法（Grammar）
-
-语句以分号 `;` 结束。
-
-EBNF（接近实现的形式）：
-
-```ebnf
-program      -> stmt* EOF ;
-
-stmt         -> let_stmt
-             | print_stmt
-             | expr ";" ;
-
-let_stmt     -> "let" IDENT "=" expr ";" ;
-print_stmt   -> "print" expr ";" ;
-
-expr         -> equality ;
-equality     -> comparison ( ( "==" | "!=" ) comparison )* ;
-comparison   -> term ( ( ">" | ">=" | "<" | "<=" ) term )* ;
-term         -> factor ( ( "+" | "-" ) factor )* ;
-factor       -> unary ( ( "*" | "/" ) unary )* ;
-unary        -> ( "!" | "-" ) unary
-             | primary ;
-primary      -> NUMBER
-             | STRING
-             | IDENT
-             | "(" expr ")" ;
+// 变量定义与控制流
+let x = 10;
+if (x > 5) {
+  pio_println("Result: " + fib(x));
+}
 ```
-
-## 优先级与结合性
-
-从高到低（越靠上优先级越高）：
-
-1. 括号：`(expr)`
-2. 一元：`!`、`-`
-3. 乘除：`*`、`/`
-4. 加减：`+`、`-`
-5. 比较：`>`、`>=`、`<`、`<=`
-6. 相等：`==`、`!=`
-
-二元运算都是左结合，例如：`1 - 2 - 3` 解析为 `(- (- 1 2) 3)`。
 
 ## AST 输出格式
 
-程序输出形如：
+AST 输出形如 S-expression：
 
 ```lisp
 (program <stmt> <stmt> ...)
@@ -106,34 +103,9 @@ primary      -> NUMBER
 
 常见节点：
 
-- `let`：`(let name <expr>)`
-- `print`：`(print <expr>)`
-- 表达式语句：`(expr <expr>)`
-- 二元：`(<op> <left> <right>)`，例如：`(+ 1 2)`、`(== x 7)`
-- 一元：`(<op> <right>)`，例如：`(- 1)`、`(! x)`
-- 分组：`(group <expr>)`
-
-## 示例
-
-```potato
-// 变量声明
-let x = 1 + 2 * 3;
-
-// 打印表达式
-print x == 7;
-
-// 表达式语句
-(1 + 2) * 3;
-```
-
-可能输出：
-
-```lisp
-(program (let x (+ 1 (* 2 3))) (print (== x 7)) (expr (* (group (+ 1 2)) 3)))
-```
-
-## 错误信息
-
-- 词法错误：`Lex error at line:column: <reason-or-char>`
-- 语法错误：`Parse error at line:column: <message>`
-
+- `(let name <expr>)`
+- `(fun name (params ...) <body>)`
+- `(if <cond> <then> <else>)`
+- `(while <cond> <body>)`
+- `(block <stmt> ...)`
+- `(call <callee> <args> ...)`

@@ -1370,8 +1370,80 @@ static int RunScript(const std::string& scriptSource, const std::string& input, 
 
 }  // namespace potatolang
 
+#ifdef POTATO_STANDALONE
+
+// Embedded script content.
+// The compiler will replace the placeholder with the actual script.
+const char* kEmbeddedScript = R"POTATO_EMBED(
+{{SCRIPT_CONTENT}}
+)POTATO_EMBED";
+
 int main(int argc, char** argv) {
   try {
+    std::string input;
+    // Allow optional input file or stdin for the compiled binary
+    if (argc >= 2) {
+      if (std::string(argv[1]) == "-") {
+        input = potatolang::ReadAll(std::cin);
+      } else {
+        input = potatolang::ReadFile(argv[1]);
+      }
+    }
+    return potatolang::RunScript(kEmbeddedScript, input, std::cout, std::cerr);
+  } catch (const std::exception& e) {
+    std::cerr << e.what() << "\n";
+    return 1;
+  }
+}
+
+#else
+
+// Helper to replace all occurrences of a substring
+static void ReplaceAll(std::string& str, const std::string& from, const std::string& to) {
+    if(from.empty()) return;
+    size_t start_pos = 0;
+    while((start_pos = str.find(from, start_pos)) != std::string::npos) {
+        str.replace(start_pos, from.length(), to);
+        start_pos += to.length();
+    }
+}
+
+int main(int argc, char** argv) {
+  try {
+    // Compilation mode: ./potatolang <script> --out <binary>
+    if (argc >= 4 && std::string(argv[2]) == "--out") {
+      std::string sourcePath = argv[1];
+      std::string outputPath = argv[3];
+      std::string script = potatolang::ReadFile(sourcePath);
+      
+      // Read the compiler's own source code (assuming it's in main.cpp in current dir)
+      std::string compilerSource;
+      try {
+        compilerSource = potatolang::ReadFile("main.cpp");
+      } catch (...) {
+        throw std::runtime_error("Could not find main.cpp to build binary. Please run from source root.");
+      }
+      
+      // Replace the placeholder with the actual script
+      ReplaceAll(compilerSource, "{{SCRIPT_CONTENT}}", script);
+      
+      // Write to a temporary file
+      std::string tempFile = "temp_build_" + outputPath + ".cpp";
+      {
+          std::ofstream out(tempFile);
+          out << compilerSource;
+      }
+      
+      // Compile the temporary file
+      std::string cmd = "clang++ -std=c++17 -DPOTATO_STANDALONE -o " + outputPath + " " + tempFile;
+      int ret = std::system(cmd.c_str());
+      
+      // Clean up
+      std::system(("rm " + tempFile).c_str());
+      
+      return ret;
+    }
+
     if (argc >= 2 && std::string(argv[1]) == "--run") {
       if (argc < 3) throw std::runtime_error("Usage: potatolang --run <script.pt> [input.pt]");
       std::string script = potatolang::ReadFile(argv[2]);
@@ -1394,3 +1466,5 @@ int main(int argc, char** argv) {
     return 1;
   }
 }
+
+#endif
