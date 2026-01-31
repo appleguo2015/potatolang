@@ -1,0 +1,122 @@
+import "potato_ui.pt";
+import "./tomato/highlighter.pt";
+
+// Editor Module
+// Manages buffer and input
+
+fun create_editor(lines, syntax_config) {
+  let ed = list();
+  push(ed, lines); // 0: lines
+  push(ed, 0);     // 1: cx
+  push(ed, 0);     // 2: cy
+  push(ed, syntax_config); // 3: syntax
+  return ed;
+}
+
+fun editor_draw(ed) {
+  let lines = get(ed, 0);
+  let cx = get(ed, 1);
+  let cy = get(ed, 2);
+  let syntax = get(ed, 3);
+  
+  ui_clear();
+  
+  // Draw content
+  let i = 0;
+  while (i < len(lines)) {
+     draw_line_highlighted(1, i + 1, get(lines, i), syntax);
+     i = i + 1;
+  }
+  
+  // Draw status bar
+  ui_move(1, 20);
+  ui_color(0, 7); // Black on White
+  ui_write(" Tomato Editor | " + to_string(cx) + ":" + to_string(cy) + " | Escape to Quit ");
+  ui_reset();
+  
+  // Place cursor
+  ui_move(cx + 1, cy + 1);
+}
+
+fun editor_handle_input(ed, key) {
+  let lines = get(ed, 0);
+  let cx = get(ed, 1);
+  let cy = get(ed, 2);
+  
+  // Navigation
+  if (key == "Up") { cy = cy - 1; }
+  if (key == "Down") { cy = cy + 1; }
+  if (key == "Left") { cx = cx - 1; }
+  if (key == "Right") { cx = cx + 1; }
+  
+  // Bounds check (vertical)
+  if (cy < 0) { cy = 0; }
+  if (cy >= len(lines)) { cy = len(lines) - 1; }
+  let current_line = get(lines, cy);
+  
+  // Bounds check (horizontal)
+  if (cx < 0) { cx = 0; }
+  if (cx > len(current_line)) { cx = len(current_line); }
+  
+  // Text Input
+  if (len(key) > 5) {
+     if (substr(key, 0, 5) == "text:") {
+         let text = substr(key, 5, len(key) - 5);
+         let left = substr(current_line, 0, cx);
+         let right = substr(current_line, cx, len(current_line) - cx);
+         let new_line = left + text + right;
+         set(lines, cy, new_line);
+         cx = cx + len(text);
+     }
+  }
+  
+  // Backspace
+  if (key == "Backspace") {
+     if (cx > 0) {
+        let left = substr(current_line, 0, cx - 1);
+        let right = substr(current_line, cx, len(current_line) - cx);
+        let new_line = left + right;
+        set(lines, cy, new_line);
+        cx = cx - 1;
+     } else if (cy > 0) {
+        // Merge with previous line
+        let prev_line = get(lines, cy - 1);
+        let new_prev_line = prev_line + current_line;
+        set(lines, cy - 1, new_prev_line);
+        remove_at(lines, cy);
+        cy = cy - 1;
+        cx = len(prev_line);
+     }
+  }
+  
+  // Return (Enter)
+  if (key == "Return") {
+     let left = substr(current_line, 0, cx);
+     let right = substr(current_line, cx, len(current_line) - cx);
+     set(lines, cy, left);
+     
+     // Manual insert:
+     let new_lines = list();
+     let i = 0;
+     while (i <= cy) {
+        push(new_lines, get(lines, i));
+        i = i + 1;
+     }
+     push(new_lines, right);
+     while (i < len(lines)) {
+        push(new_lines, get(lines, i));
+        i = i + 1;
+     }
+     set(ed, 0, new_lines);
+     lines = new_lines;
+     
+     cy = cy + 1;
+     cx = 0;
+  }
+  
+  // Update state
+  set(ed, 1, cx);
+  set(ed, 2, cy);
+  
+  return key != "Escape";
+}

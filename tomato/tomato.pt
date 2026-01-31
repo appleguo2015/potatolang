@@ -1,0 +1,61 @@
+import "potato_ui.pt";
+import "./tomato/editor.pt";
+import "./tomato/syntax_loader.pt";
+
+// Tomato Main Entry
+
+// Init Graphics Window
+if (!ui_init_window(800, 600, "Tomato Editor")) {
+  print "Failed to init graphics";
+  // We can't return from top-level script easily, just exit loop
+} else {
+
+  let args = list(); 
+
+  let filename = "test.pt";
+  let syntax_file = "tomato/potatolang.potato";
+
+  print "Loading syntax from " + syntax_file + "...";
+  let syntax_config = load_syntax(syntax_file);
+
+  if (syntax_config == nil) {
+    print "Failed to load syntax config.";
+  } else {
+    print "Syntax loaded.";
+  }
+
+  // Initial Buffer
+  let lines = list();
+  push(lines, "fun main() {");
+  push(lines, "  print \"Hello Tomato\";");
+  push(lines, "  let x = 10;");
+  push(lines, "  // This is a comment");
+  push(lines, "}");
+
+  let editor = create_editor(lines, syntax_config);
+  let running = true;
+
+  while (running) {
+    editor_draw(editor);
+    ui_present();
+    
+    let key = get_key();
+    while (key != nil) {
+       if (key != "") {
+          running = editor_handle_input(editor, key);
+       }
+       if (!running) { 
+          key = nil; 
+       } else { 
+          key = get_key(); 
+       }
+    }
+    
+    sleep(10);
+  }
+
+  ui_clear();
+  ui_draw_text(10, 10, "Bye!");
+  ui_present();
+  sleep(1000);
+}

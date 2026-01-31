@@ -1,0 +1,28 @@
+import "potato_file.pt";
+
+let filename = "test_io.txt";
+
+print "Checking if file exists...";
+if (file_exists(filename)) {
+  print "File exists, deleting (overwriting with empty)...";
+} else {
+  print "File does not exist.";
+}
+
+print "Writing to file...";
+if (file_write(filename, "Hello, Potato!")) {
+  print "Write success.";
+} else {
+  print "Write failed.";
+}
+
+print "Reading from file...";
+let content = file_read(filename);
+print "Content: " + content;
+
+print "Appending to file...";
+file_append(filename, "\nAppended line.");
+
+print "Reading again...";
+content = file_read(filename);
+print "New Content: " + content;

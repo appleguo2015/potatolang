@@ -1,0 +1,57 @@
+import "potato_file.pt";
+import "./tomato/utils.pt";
+
+// Syntax Loader
+// Reads a .potato file and returns a configuration list
+// Config structure: [keywords_list, comment_prefix, string_delim]
+
+fun load_syntax(path) {
+  let content = file_read(path);
+  if (content == nil) {
+    return nil;
+  }
+  
+  let lines = split(content, "\n");
+  let keywords = list();
+  let comment_prefix = "//"; // default
+  let string_delim = "\"";   // default
+  
+  let i = 0;
+  while (i < len(lines)) {
+    let line = get(lines, i);
+    // Simple parser: key:value
+    let parts = split(line, ":");
+    if (len(parts) >= 2) {
+      let key = get(parts, 0);
+      let val = get(parts, 1);
+      
+      // Handle "keywords"
+      if (key == "keywords") {
+        let kw_list = split(val, ",");
+        let k = 0;
+        while (k < len(kw_list)) {
+           push(keywords, get(kw_list, k));
+           k = k + 1;
+        }
+      }
+      
+      // Handle "comment"
+      if (key == "comment") {
+        comment_prefix = val;
+      }
+      
+      // Handle "string"
+      if (key == "string") {
+        string_delim = val;
+      }
+    }
+    i = i + 1;
+  }
+  
+  let config = list();
+  push(config, keywords);
+  push(config, comment_prefix);
+  push(config, string_delim);
+  
+  return config;
+}

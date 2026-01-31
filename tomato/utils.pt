@@ -1,0 +1,41 @@
+
+// Utilities for Tomato
+
+// Split a string by a delimiter (single char)
+fun split(str, delim) {
+  let parts = list();
+  let current = "";
+  let i = 0;
+  let len_str = len(str);
+  while (i < len_str) {
+    let c = char_at(str, i);
+    if (c == delim) {
+      push(parts, current);
+      current = "";
+    } else {
+      current = current + c;
+    }
+    i = i + 1;
+  }
+  push(parts, current);
+  return parts;
+}
+
+// Check if a list contains an item
+fun contains(lst, item) {
+  let i = 0;
+  let n = len(lst);
+  while (i < n) {
+    if (get(lst, i) == item) {
+      return true;
+    }
+    i = i + 1;
+  }
+  return false;
+}
+
+// Trim whitespace (simplified, only spaces)
+fun trim(str) {
+    // Todo: full trim. For now return as is or implement simple left/right trim
+    return str;
+}

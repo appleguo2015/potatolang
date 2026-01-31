@@ -104,17 +104,43 @@ clang++ -std=c++17 main.cpp -o potatolang $(pkg-config --cflags --libs sdl2)
 - 支持字符串拼接 `+` 和重复 `*` (例如 `"a" * 3` 得到 `"aaa"`)。
 - `to_string(val)`: 将值转换为字符串。
 
-### 示例：贪吃蛇
+### 标准库模块
 
-项目中包含一个完整的图形化贪吃蛇游戏示例 `snake.pt`。
+#### 文件 IO (potato_file)
+需要导入模块: `import "potato_file.pt";`
+
+- `file_exists(path)`: 检查文件是否存在。
+- `file_read(path)`: 读取整个文件内容。
+- `file_write(path, content)`: 写入内容到文件（覆盖）。
+- `file_append(path, content)`: 追加内容到文件。
+
+### 示例项目
+
+#### 1. 贪吃蛇 (snake.pt)
+项目中包含一个完整的图形化贪吃蛇游戏示例。
 
 ```bash
 ./potatolang --run snake.pt
 ```
 
-或者编译后运行：
+#### 2. Tomato 编辑器 (tomato/)
+一个轻量级的 TUI 代码编辑器，支持通过 `.potato` 文件配置语法高亮。
 
+**运行方法：**
 ```bash
-./potatolang snake.pt --out snake
-./snake
+./potatolang --run tomato/tomato.pt
+```
+
+**目录结构：**
+- `tomato/tomato.pt`: 主入口
+- `tomato/editor.pt`: 编辑器核心逻辑
+- `tomato/highlighter.pt`: 语法高亮引擎
+- `tomato/syntax_loader.pt`: `.potato` 配置文件加载器
+- `tomato/potatolang.potato`: Potatolang 语法定义示例
+
+**配置语法高亮 (.potato):**
+```text
+keywords:let,fun,if,else,while
+comment://
+string:"
 ```

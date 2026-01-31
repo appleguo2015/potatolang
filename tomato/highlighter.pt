@@ -1,0 +1,118 @@
+import "potato_ui.pt";
+import "./tomato/utils.pt";
+
+// Highlighter Module
+// Applies colors based on syntax config
+
+fun draw_line_highlighted(x, y, text, syntax_config) {
+  if (syntax_config == nil) {
+    ui_move(x, y);
+    ui_write(text);
+    return nil;
+  }
+
+  let keywords = get(syntax_config, 0);
+  let comment_prefix = get(syntax_config, 1);
+  let string_delim = get(syntax_config, 2);
+
+  ui_move(x, y);
+
+  // Naive tokenization and coloring
+  // We scan character by character
+  
+  let i = 0;
+  let len_text = len(text);
+  let current_token = "";
+  
+  // State: 0=normal, 1=in_string, 2=in_comment
+  let state = 0;
+  
+  while (i < len_text) {
+    // Check for comment start (simplified: assuming 2 chars for now if //)
+    if (state == 0) {
+       // Check comment
+       let is_comment = false;
+       if (len(comment_prefix) > 0) {
+         if (len_text - i >= len(comment_prefix)) {
+            if (substr(text, i, len(comment_prefix)) == comment_prefix) {
+               is_comment = true;
+            }
+         }
+       }
+       
+       if (is_comment) {
+         // Flush current token
+         if (len(current_token) > 0) {
+            if (contains(keywords, current_token)) {
+               ui_color(5, 0); // Magenta for keywords
+            } else {
+               ui_color(7, 0); // White
+            }
+            ui_write(current_token);
+            current_token = "";
+         }
+         
+         // Write comment
+         ui_color(2, 0); // Green for comments
+         ui_write(substr(text, i, len_text - i));
+         i = len_text; // Done with line
+         state = 2;
+       } else {
+         let c = char_at(text, i);
+         if (c == string_delim) {
+            // Flush token
+            if (len(current_token) > 0) {
+                if (contains(keywords, current_token)) {
+                   ui_color(5, 0);
+                } else {
+                   ui_color(7, 0);
+                }
+                ui_write(current_token);
+                current_token = "";
+            }
+            // Start string
+            state = 1;
+            ui_color(3, 0); // Yellow for strings
+            ui_write(c);
+         } else if (c == " " or c == "(" or c == ")" or c == ";" or c == "," or c == "+" or c == "-" or c == "*" or c == "/" or c == "=" or c == "{" or c == "}") {
+            // Delimiter
+            if (len(current_token) > 0) {
+                if (contains(keywords, current_token)) {
+                   ui_color(5, 0);
+                } else {
+                   ui_color(7, 0);
+                }
+                ui_write(current_token);
+                current_token = "";
+            }
+            ui_color(7, 0);
+            ui_write(c);
+         } else {
+            current_token = current_token + c;
+         }
+       }
+    } else if (state == 1) {
+       // In String
+       let c = char_at(text, i);
+       ui_write(c);
+       if (c == string_delim) {
+          state = 0;
+          ui_color(7, 0);
+       }
+    }
+    
+    i = i + 1;
+  }
+  
+  // Flush last token
+  if (len(current_token) > 0) {
+      if (contains(keywords, current_token)) {
+         ui_color(5, 0);
+      } else {
+         ui_color(7, 0);
+      }
+      ui_write(current_token);
+  }
+  
+  ui_reset();
+}

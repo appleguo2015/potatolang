@@ -1,0 +1,30 @@
+// potato_file module
+// Provides File I/O utilities
+
+// Check if a file exists
+// Returns true or false
+fun file_exists(path) {
+  return _file_exists(path);
+}
+
+// Read entire file content
+// Returns string or nil if failed
+fun file_read(path) {
+  return _file_read(path);
+}
+
+// Write content to file
+// Returns true on success, false otherwise
+fun file_write(path, content) {
+  return _file_write(path, content);
+}
+
+// Append content to file
+fun file_append(path, content) {
+  let old = "";
+  if (file_exists(path)) {
+    old = file_read(path);
+    if (old == nil) { old = ""; }
+  }
+  return file_write(path, old + content);
+}

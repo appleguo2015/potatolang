@@ -1,3 +1,7 @@
+
+// This is a Potato Snake Game
+// Use Old Potato Graphics API
+
 // Game Config
 let GRID_W = 40;
 let GRID_H = 20;

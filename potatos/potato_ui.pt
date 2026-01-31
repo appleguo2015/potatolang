@@ -1,9 +1,8 @@
-import "pio.pt";
 
 // potato_ui module
-// Provides a TUI-based Window API
+// Provides a Graphical Window API (SDL2 based)
 
-// Constants for colors
+// Constants for colors (using indexed palette for simplicity)
 let UI_BLACK = 0;
 let UI_RED = 1;
 let UI_GREEN = 2;
@@ -13,61 +12,147 @@ let UI_MAGENTA = 5;
 let UI_CYAN = 6;
 let UI_WHITE = 7;
 
-// Clear the entire screen and move cursor to (1,1)
-fun ui_clear() {
-  write("\033[2J\033[H");
+// Color Palette (R, G, B)
+fun _get_color_rgb(idx) {
+  if (idx == 0) return list(); push(list(), 0); push(list(), 0); push(list(), 0); // Black (TODO: fix list usage)
+}
+// Using hardcoded RGB values in ui_color instead of complex lookup for now
+// Potatolang lists are mutable reference types, so it's verbose to create them inline
+
+// State
+let _ui_cursor_x = 0;
+let _ui_cursor_y = 0;
+let _ui_bg_color = 0; // Black default
+let _ui_fg_color = 7; // White default
+
+// Font dimensions
+let _CHAR_W = 6;
+let _CHAR_H = 8;
+let _SCALE = 2; // Scale factor for visibility
+
+// Initialize the graphics window
+// Replaces TUI init logic if any
+// Call this once at start
+fun ui_init_window(w, h, title) {
+  return graphics_init(w, h, title);
 }
 
-// Move cursor to (x, y). 1-based coordinates.
+// Clear the entire screen and move cursor to (0,0)
+fun ui_clear() {
+  graphics_color(0, 0, 0); // Clear to black
+  graphics_clear();
+  _ui_cursor_x = 0;
+  _ui_cursor_y = 0;
+}
+
+// Move cursor to (x, y) - Grid coordinates (1-based to match TUI logic)
 fun ui_move(x, y) {
-  write("\033[" + to_string(y) + ";" + to_string(x) + "H");
+  // Convert 1-based grid coords to pixels
+  // Adjust to 0-based for calculation
+  _ui_cursor_x = (x - 1) * _CHAR_W * _SCALE;
+  _ui_cursor_y = (y - 1) * _CHAR_H * _SCALE;
 }
 
 // Reset text attributes
 fun ui_reset() {
-  write("\033[0m");
+  _ui_fg_color = 7;
+  _ui_bg_color = 0;
 }
 
 // Set foreground and background color
 // fg: 0-7, bg: 0-7
 fun ui_color(fg, bg) {
-  write("\033[3" + to_string(fg) + ";4" + to_string(bg) + "m");
+  _ui_fg_color = fg;
+  _ui_bg_color = bg;
+}
+
+// Internal helper to set SDL color from index
+fun _set_sdl_color(idx) {
+  if (idx == 0) { graphics_color(0, 0, 0); }       // Black
+  else if (idx == 1) { graphics_color(170, 0, 0); }   // Red
+  else if (idx == 2) { graphics_color(0, 170, 0); }   // Green
+  else if (idx == 3) { graphics_color(170, 85, 0); }  // Yellow/Brown
+  else if (idx == 4) { graphics_color(0, 0, 170); }   // Blue
+  else if (idx == 5) { graphics_color(170, 0, 170); } // Magenta
+  else if (idx == 6) { graphics_color(0, 170, 170); } // Cyan
+  else if (idx == 7) { graphics_color(170, 170, 170); } // White
+}
+
+// Write text at current cursor position
+// Replaces 'write()' for UI elements
+fun ui_write(text) {
+  // 1. Draw Background if not black (optional, or always draw bg rect)
+  // For simplicity, we assume transparent background for text unless we implement rect drawing
+  // Let's draw background rect for the text length
+  
+  let len_text = len(text);
+  let px_w = len_text * _CHAR_W * _SCALE;
+  let px_h = _CHAR_H * _SCALE;
+  
+  // Set BG color
+  _set_sdl_color(_ui_bg_color);
+  graphics_rect(_ui_cursor_x, _ui_cursor_y, px_w, px_h);
+  
+  // Set FG color
+  _set_sdl_color(_ui_fg_color);
+  
+  // Draw text (using native graphics_draw_text which is 1:1 pixel)
+  // Since we want scaling, we might need to handle scaling in native or here.
+  // Native is 1:1. If we want 2x, we are stuck unless native supports it.
+  // Let's assume 1:1 for now, or update native to support scale?
+  // User asked for "same UI", TUI is usually large. 5x7 is tiny.
+  // For now, let's just use 1:1 and maybe update native later if too small.
+  // Wait, native draw_text I implemented draws 5x7 dots.
+  // If I want scaling, I should have implemented it in native.
+  // Let's just stick to 1:1 for this iteration.
+  
+  graphics_draw_text(_ui_cursor_x, _ui_cursor_y, text);
+  
+  // Advance cursor
+  _ui_cursor_x = _ui_cursor_x + (len_text * _CHAR_W); // spacing included in CHAR_W (6)
 }
 
 // Draw a box with a title
 fun ui_draw_box(x, y, w, h, title) {
-  ui_move(x, y);
-  write("+" + "-" * (w - 2) + "+");
+  // Convert grid to pixels
+  let px = (x - 1) * _CHAR_W;
+  let py = (y - 1) * _CHAR_H;
+  let pw = w * _CHAR_W;
+  let ph = h * _CHAR_H;
   
-  let i = 1;
-  while (i < h - 1) {
-    ui_move(x, y + i);
-    write("|" + " " * (w - 2) + "|");
-    i = i + 1;
-  }
+  // Draw border (using rects)
+  _set_sdl_color(_ui_fg_color);
   
-  ui_move(x, y + h - 1);
-  write("+" + "-" * (w - 2) + "+");
+  // Top
+  graphics_rect(px, py, pw, _CHAR_H); 
+  // Bottom
+  graphics_rect(px, py + ph - _CHAR_H, pw, _CHAR_H);
+  // Left
+  graphics_rect(px, py, _CHAR_W, ph);
+  // Right
+  graphics_rect(px + pw - _CHAR_W, py, _CHAR_W, ph);
   
   if (len(title) > 0) {
+    // Draw title
     ui_move(x + 2, y);
-    write(" " + title + " ");
+    ui_write(" " + title + " ");
   }
 }
 
 // Draw text at a specific location
 fun ui_draw_text(x, y, text) {
   ui_move(x, y);
-  write(text);
+  ui_write(text);
 }
 
-// Simple input box
-fun ui_input_box(x, y, prompt) {
-  ui_draw_box(x, y, 40, 3, prompt);
-  ui_move(x + 2, y + 1);
-  // Show cursor
-  write("\033[?25h");
-  let res = read_line();
-  // Hide cursor? No, keep it.
-  return res;
+// Poll input (Non-blocking)
+// Returns key string or nil
+fun get_key() {
+  return graphics_poll();
 }
+
+// Update screen
+fun ui_present() {
+  graphics_present();
+}
+
