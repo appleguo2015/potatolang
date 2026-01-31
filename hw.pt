@@ -1,1 +1,3 @@
-print "hello world\n";
+// Print hello world to the standard output
+import "pio.pt";
+pio_println("hello world");

@@ -49,6 +49,7 @@ enum class TokenType {
   While,
   Fun,
   Return,
+  Import,
   True,
   False,
   Nil,
@@ -100,6 +101,7 @@ static std::string TokenTypeName(TokenType t) {
     case TokenType::While: return "While";
     case TokenType::Fun: return "Fun";
     case TokenType::Return: return "Return";
+    case TokenType::Import: return "Import";
     case TokenType::True: return "True";
     case TokenType::False: return "False";
     case TokenType::Nil: return "Nil";
@@ -115,6 +117,7 @@ class Lexer {
  public:
   explicit Lexer(std::string source) : source_(std::move(source)) {}
 
+  // Scans all tokens from the source string.
   std::vector<Token> LexAll() {
     std::vector<Token> out;
     while (true) {
@@ -126,6 +129,7 @@ class Lexer {
   }
 
  private:
+  // Scans the next token.
   Token NextToken() {
     SkipWhitespaceAndComments();
     SourceLocation start = loc_;
@@ -157,6 +161,7 @@ class Lexer {
     return Make(TokenType::Invalid, std::string(1, c), start);
   }
 
+  // Scans a string literal.
   Token LexString(const SourceLocation& start) {
     std::string value;
     while (!IsAtEnd() && Peek() != '"') {
@@ -181,6 +186,7 @@ class Lexer {
     return Make(TokenType::String, value, start);
   }
 
+  // Scans a number literal.
   Token LexNumber(const SourceLocation& start, char first) {
     std::string s(1, first);
     while (!IsAtEnd() && std::isdigit(static_cast<unsigned char>(Peek()))) s.push_back(Advance());
@@ -191,6 +197,7 @@ class Lexer {
     return Make(TokenType::Number, s, start);
   }
 
+  // Scans an identifier or a keyword.
   Token LexIdentifierOrKeyword(const SourceLocation& start, char first) {
     std::string s(1, first);
     while (!IsAtEnd() && IsIdentContinue(Peek())) s.push_back(Advance());
@@ -201,6 +208,7 @@ class Lexer {
     if (s == "while") return Make(TokenType::While, s, start);
     if (s == "fun") return Make(TokenType::Fun, s, start);
     if (s == "return") return Make(TokenType::Return, s, start);
+    if (s == "import") return Make(TokenType::Import, s, start);
     if (s == "true") return Make(TokenType::True, s, start);
     if (s == "false") return Make(TokenType::False, s, start);
     if (s == "nil") return Make(TokenType::Nil, s, start);
@@ -209,6 +217,7 @@ class Lexer {
     return Make(TokenType::Identifier, s, start);
   }
 
+  // Skips whitespace and comments.
   void SkipWhitespaceAndComments() {
     while (!IsAtEnd()) {
       char c = Peek();
@@ -441,6 +450,20 @@ struct ExprStmt : Stmt {
   }
 };
 
+struct ImportStmt : Stmt {
+  Token module;
+  explicit ImportStmt(Token m) : module(std::move(m)) {}
+  void Print(std::ostream& out) const override {
+    out << "(import ";
+    if (module.type == TokenType::String) {
+      out << '"' << LiteralExpr::Escape(module.lexeme) << '"';
+    } else {
+      out << module.lexeme;
+    }
+    out << ")";
+  }
+};
+
 struct BlockStmt : Stmt {
   std::vector<StmtPtr> statements;
   explicit BlockStmt(std::vector<StmtPtr> s) : statements(std::move(s)) {}
@@ -522,6 +545,7 @@ class Parser {
  public:
   explicit Parser(std::vector<Token> tokens) : tokens_(std::move(tokens)) {}
 
+  // Parses the full program into a list of statements.
   std::vector<StmtPtr> ParseProgram() {
     std::vector<StmtPtr> stmts;
     while (!Check(TokenType::Eof)) {
@@ -531,10 +555,19 @@ class Parser {
   }
 
  private:
+  // Parses a declaration (function, variable, or statement).
   StmtPtr ParseDeclaration() {
+    if (Match(TokenType::Import)) return ParseImportStmt();
     if (Match(TokenType::Fun)) return ParseFunDecl();
     if (Match(TokenType::Let)) return ParseLetStmt();
     return ParseStmt();
+  }
+
+  // Parses an import statement.
+  StmtPtr ParseImportStmt() {
+    Token module = Match(TokenType::String) ? Previous() : Consume(TokenType::Identifier, "Expected module name after 'import'");
+    Consume(TokenType::Semicolon, "Expected ';' after import statement");
+    return std::make_unique<ImportStmt>(std::move(module));
   }
 
   StmtPtr ParseLetStmt() {
@@ -551,16 +584,22 @@ class Parser {
     return std::make_unique<PrintStmt>(std::move(e));
   }
 
+  // Parses a generic statement (expression, block, if, while, return, assign).
   StmtPtr ParseStmt() {
-    if (Match(TokenType::Print)) return ParsePrintStmt();
+    if (Match(TokenType::LeftBrace)) return ParseBlockStmt();
     if (Match(TokenType::If)) return ParseIfStmt();
     if (Match(TokenType::While)) return ParseWhileStmt();
     if (Match(TokenType::Return)) return ParseReturnStmt();
-    if (Match(TokenType::LeftBrace)) return ParseBlockStmt();
     if (Check(TokenType::Identifier) && CheckNext(TokenType::Equal)) return ParseAssignStmt();
-    ExprPtr e = ParseExpr();
+    if (Match(TokenType::Print)) return ParsePrintStmt();
+    return ParseExprStmt();
+  }
+
+  // Parses an expression statement.
+  StmtPtr ParseExprStmt() {
+    auto expr = ParseExpr();
     Consume(TokenType::Semicolon, "Expected ';' after expression");
-    return std::make_unique<ExprStmt>(std::move(e));
+    return std::make_unique<ExprStmt>(std::move(expr));
   }
 
   StmtPtr ParseAssignStmt() {
@@ -580,21 +619,25 @@ class Parser {
     return std::make_unique<BlockStmt>(std::move(statements));
   }
 
+  // Parses an if statement.
   StmtPtr ParseIfStmt() {
     Consume(TokenType::LeftParen, "Expected '(' after 'if'");
-    ExprPtr condition = ParseExpr();
+    auto condition = ParseExpr();
     Consume(TokenType::RightParen, "Expected ')' after if condition");
-    StmtPtr thenBranch = ParseStmt();
+    auto thenBranch = ParseStmt();
     std::optional<StmtPtr> elseBranch;
-    if (Match(TokenType::Else)) elseBranch = ParseStmt();
+    if (Match(TokenType::Else)) {
+      elseBranch = ParseStmt();
+    }
     return std::make_unique<IfStmt>(std::move(condition), std::move(thenBranch), std::move(elseBranch));
   }
 
+  // Parses a while loop.
   StmtPtr ParseWhileStmt() {
     Consume(TokenType::LeftParen, "Expected '(' after 'while'");
-    ExprPtr condition = ParseExpr();
+    auto condition = ParseExpr();
     Consume(TokenType::RightParen, "Expected ')' after while condition");
-    StmtPtr body = ParseStmt();
+    auto body = ParseStmt();
     return std::make_unique<WhileStmt>(std::move(condition), std::move(body));
   }
 
@@ -931,6 +974,8 @@ class Interpreter {
     InstallBuiltins();
   }
 
+  // Run the interpreter on the provided AST.
+  // Returns 0 on success, 1 on runtime error.
   int Run(const std::vector<StmtPtr>& program) {
     try {
       for (const auto& s : program) Execute(s.get());
@@ -942,6 +987,7 @@ class Interpreter {
   }
 
  private:
+  // Install built-in native functions into the global scope.
   void InstallBuiltins() {
     auto add = [&](std::string name, int arity, std::function<Value(const std::vector<Value>&)> fn) {
       auto nf = std::make_shared<NativeFunctionValue>();
@@ -951,18 +997,25 @@ class Interpreter {
       globals_->Define(nf->name, Value::Native(nf));
     };
 
+    // Creates a new empty list.
     add("list", 0, [&](const std::vector<Value>&) { return Value::List(std::make_shared<ListValue>()); });
+    
+    // Pushes an item to the end of a list.
     add("push", 2, [&](const std::vector<Value>& args) {
       auto l = AsList(args[0]);
       l->items.push_back(args[1]);
       return args[0];
     });
+    
+    // Gets an item from a list by index.
     add("get", 2, [&](const std::vector<Value>& args) {
       auto l = AsList(args[0]);
       int i = static_cast<int>(AsNumber(args[1]));
       if (i < 0 || i >= static_cast<int>(l->items.size())) return Value::Nil();
       return l->items[static_cast<std::size_t>(i)];
     });
+    
+    // Sets an item in a list by index.
     add("set", 3, [&](const std::vector<Value>& args) {
       auto l = AsList(args[0]);
       int i = static_cast<int>(AsNumber(args[1]));
@@ -970,11 +1023,14 @@ class Interpreter {
       l->items[static_cast<std::size_t>(i)] = args[2];
       return args[0];
     });
+    
+    // Returns the length of a string or list.
     add("len", 1, [&](const std::vector<Value>& args) {
       if (IsString(args[0])) return Value::Number(static_cast<double>(AsString(args[0]).size()));
       if (IsList(args[0])) return Value::Number(static_cast<double>(AsList(args[0])->items.size()));
       throw RuntimeError("len() expects string or list");
     });
+    // Returns a substring of a string.
     add("substr", 3, [&](const std::vector<Value>& args) {
       const std::string& s = AsString(args[0]);
       int start = static_cast<int>(AsNumber(args[1]));
@@ -986,23 +1042,40 @@ class Interpreter {
       if (end > static_cast<int>(s.size())) end = static_cast<int>(s.size());
       return Value::Str(s.substr(static_cast<std::size_t>(start), static_cast<std::size_t>(end - start)));
     });
+
+    // Returns the character at a specific index in a string.
     add("char_at", 2, [&](const std::vector<Value>& args) {
       const std::string& s = AsString(args[0]);
       int i = static_cast<int>(AsNumber(args[1]));
       if (i < 0 || i >= static_cast<int>(s.size())) return Value::Str("");
       return Value::Str(s.substr(static_cast<std::size_t>(i), 1));
     });
+
+    // Converts any value to a string representation.
     add("to_string", 1, [&](const std::vector<Value>& args) { return Value::Str(ValueToString(args[0])); });
+    
+    // Writes a string to standard output.
+    add("write", 1, [&](const std::vector<Value>& args) {
+      out_ << ValueToString(args[0]);
+      out_.flush();
+      return Value::Nil();
+    });
+
+    // Checks if a string contains only digits.
     add("is_digit", 1, [&](const std::vector<Value>& args) {
       const std::string& s = AsString(args[0]);
       if (s.size() != 1) return Value::Bool(false);
       return Value::Bool(std::isdigit(static_cast<unsigned char>(s[0])) != 0);
     });
+
+    // Checks if a string contains only alphabetic characters.
     add("is_alpha", 1, [&](const std::vector<Value>& args) {
       const std::string& s = AsString(args[0]);
       if (s.size() != 1) return Value::Bool(false);
       return Value::Bool(std::isalpha(static_cast<unsigned char>(s[0])) != 0 || s[0] == '_');
     });
+
+    // Checks if a string contains only alphanumeric characters.
     add("is_alnum", 1, [&](const std::vector<Value>& args) {
       const std::string& s = AsString(args[0]);
       if (s.size() != 1) return Value::Bool(false);
@@ -1010,7 +1083,70 @@ class Interpreter {
     });
   }
 
+  // Imports a module from a file.
+  void ImportModule(const Token& moduleTok) {
+    std::string name = moduleTok.lexeme;
+    if (imported_modules_.find(name) != imported_modules_.end()) return;
+    imported_modules_[name] = true;
+
+    std::string path;
+    if (!name.empty() && (name[0] == '/' || name.rfind("./", 0) == 0 || name.rfind("../", 0) == 0)) {
+      path = name;
+    } else {
+      path = module_base_dir_ + "/" + name;
+    }
+    if (path.size() < 3 || path.substr(path.size() - 3) != ".pt") path += ".pt";
+
+    std::ifstream f(path);
+    if (!f) {
+      imported_modules_.erase(name);
+      throw RuntimeError("Failed to import module: " + name);
+    }
+
+    try {
+      std::ostringstream ss;
+      ss << f.rdbuf();
+      std::string source = ss.str();
+
+      Lexer lexer(std::move(source));
+      std::vector<Token> tokens = lexer.LexAll();
+      for (const auto& t : tokens) {
+        if (t.type == TokenType::Invalid) {
+          throw RuntimeError("Lex error importing module: " + name);
+        }
+      }
+
+      Parser parser(std::move(tokens));
+      std::vector<StmtPtr> program = parser.ParseProgram();
+      imported_programs_[name] = std::move(program);
+      const std::vector<StmtPtr>& kept = imported_programs_[name];
+
+      std::shared_ptr<Environment> previous = env_;
+      env_ = globals_;
+      try {
+        for (const auto& s : kept) Execute(s.get());
+      } catch (...) {
+        env_ = previous;
+        throw;
+      }
+      env_ = previous;
+    } catch (const ParseError& e) {
+      imported_modules_.erase(name);
+      imported_programs_.erase(name);
+      throw RuntimeError(std::string(e.what()));
+    } catch (...) {
+      imported_modules_.erase(name);
+      imported_programs_.erase(name);
+      throw;
+    }
+  }
+
+  // Executes a single statement.
   void Execute(const Stmt* stmt) {
+    if (auto s = dynamic_cast<const ImportStmt*>(stmt)) {
+      ImportModule(s->module);
+      return;
+    }
     if (auto s = dynamic_cast<const LetStmt*>(stmt)) {
       Value v = Evaluate(s->init.get());
       env_->Define(s->name.lexeme, std::move(v));
@@ -1061,6 +1197,7 @@ class Interpreter {
     throw RuntimeError("Unknown statement");
   }
 
+  // Executes a block of statements in a new environment.
   void ExecuteBlock(const std::vector<StmtPtr>& statements, std::shared_ptr<Environment> newEnv) {
     std::shared_ptr<Environment> previous = env_;
     env_ = std::move(newEnv);
@@ -1073,6 +1210,7 @@ class Interpreter {
     env_ = previous;
   }
 
+  // Evaluates an expression and returns a value.
   Value Evaluate(const Expr* expr) {
     if (auto e = dynamic_cast<const LiteralExpr*>(expr)) {
       switch (e->kind) {
@@ -1134,6 +1272,7 @@ class Interpreter {
     throw RuntimeError("Unknown expression");
   }
 
+  // Calls a function (native or user-defined).
   Value Call(Value callee, const std::vector<Value>& args) {
     if (IsNative(callee)) {
       auto nf = std::get<std::shared_ptr<NativeFunctionValue>>(callee.v);
@@ -1166,6 +1305,9 @@ class Interpreter {
   std::ostream& err_;
   std::shared_ptr<Environment> globals_;
   std::shared_ptr<Environment> env_;
+  std::unordered_map<std::string, bool> imported_modules_;
+  std::unordered_map<std::string, std::vector<StmtPtr>> imported_programs_;
+  std::string module_base_dir_ = "potatos";
 };
 
 static std::string ReadAll(std::istream& in) {
@@ -1233,7 +1375,16 @@ int main(int argc, char** argv) {
     if (argc >= 2 && std::string(argv[1]) == "--run") {
       if (argc < 3) throw std::runtime_error("Usage: potatolang --run <script.pt> [input.pt]");
       std::string script = potatolang::ReadFile(argv[2]);
-      std::string input = (argc >= 4) ? potatolang::ReadFile(argv[3]) : potatolang::ReadAll(std::cin);
+      std::string input;
+      if (argc >= 4) {
+        if (std::string(argv[3]) == "-") {
+          input = potatolang::ReadAll(std::cin);
+        } else {
+          input = potatolang::ReadFile(argv[3]);
+        }
+      } else {
+        input = "";
+      }
       return potatolang::RunScript(script, input, std::cout, std::cerr);
     }
     if (argc >= 2) return potatolang::ParseOnly(potatolang::ReadFile(argv[1]), std::cout, std::cerr);

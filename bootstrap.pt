@@ -1,3 +1,4 @@
+// Creates a token list [type, lexeme]
 fun make_token(t, lex) {
   let tok = list();
   tok = push(tok, t);
@@ -5,9 +6,11 @@ fun make_token(t, lex) {
   return tok;
 }
 
+// Helper functions to access token fields
 fun tok_type(tok) { return get(tok, 0); }
 fun tok_lex(tok) { return get(tok, 1); }
 
+// Escapes special characters in a string for printing
 fun escape_string(s) {
   let out = "";
   let j = 0;
@@ -38,10 +41,12 @@ fun escape_string(s) {
 let src = "";
 let i = 0;
 
+// Helper functions for character scanning
 fun at_end() { return i >= len(src); }
 fun peek() { return char_at(src, i); }
 fun peek_next() { return char_at(src, i + 1); }
 
+// Advances current character position
 fun advance_char() {
   let c = char_at(src, i);
   i = i + 1;
@@ -55,6 +60,7 @@ fun match_char(expected) {
   return true;
 }
 
+// Skips whitespace and comments
 fun skip_ws_and_comments() {
   while (!at_end()) {
     let c = peek();
@@ -72,6 +78,7 @@ fun skip_ws_and_comments() {
   }
 }
 
+// Scans a string literal
 fun lex_string() {
   let value = "";
   while (!at_end() and peek() != "\"") {
@@ -105,6 +112,7 @@ fun lex_string() {
   return make_token("String", value);
 }
 
+// Scans a number literal
 fun lex_number(first) {
   let lex = first;
   while (is_digit(peek())) { lex = lex + advance_char(); }
@@ -115,6 +123,7 @@ fun lex_number(first) {
   return make_token("Number", lex);
 }
 
+// Determines the type of a keyword or identifier
 fun keyword_type(lex) {
   if (lex == "let") return "Let";
   if (lex == "print") return "Print";
@@ -123,6 +132,7 @@ fun keyword_type(lex) {
   if (lex == "while") return "While";
   if (lex == "fun") return "Fun";
   if (lex == "return") return "Return";
+  if (lex == "import") return "Import";
   if (lex == "true") return "True";
   if (lex == "false") return "False";
   if (lex == "nil") return "Nil";
@@ -131,12 +141,14 @@ fun keyword_type(lex) {
   return "Identifier";
 }
 
+// Scans an identifier or keyword
 fun lex_identifier(first) {
   let lex = first;
   while (is_alnum(peek())) { lex = lex + advance_char(); }
   return make_token(keyword_type(lex), lex);
 }
 
+// Scans the next token
 fun lex_token() {
   skip_ws_and_comments();
   if (at_end()) return make_token("Eof", "");
@@ -178,6 +190,7 @@ fun lex_token() {
   return make_token("Invalid", c);
 }
 
+// Scans all tokens from the source
 fun lex_all() {
   let tokens = list();
   while (true) {
@@ -190,12 +203,16 @@ fun lex_all() {
 let tokens = list();
 let current = 0;
 
+// Token stream helper functions
 fun has_next() { return current + 1 < len(tokens); }
 fun peek_tok() { return get(tokens, current); }
 fun previous_tok() { return get(tokens, current - 1); }
 fun peek_next_tok() { return get(tokens, current + 1); }
 
+// Checks if the current token is of a specific type
 fun check(t) { return tok_type(peek_tok()) == t; }
+
+// Checks if the next token is of a specific type
 fun check_next(t) {
   if (!has_next()) return false;
   return tok_type(peek_next_tok()) == t;
@@ -203,11 +220,13 @@ fun check_next(t) {
 
 fun is_at_end_tok() { return check("Eof"); }
 
+// Advances to the next token
 fun advance_tok() {
   if (!is_at_end_tok()) current = current + 1;
   return previous_tok();
 }
 
+// Consumes the current token if it matches the type
 fun match_tok(t) {
   if (check(t)) {
     advance_tok();
@@ -216,6 +235,7 @@ fun match_tok(t) {
   return false;
 }
 
+// Consumes the current token if it matches the type, otherwise reports an error
 fun consume(t, msg) {
   if (check(t)) return advance_tok();
   let got = peek_tok();
@@ -223,6 +243,7 @@ fun consume(t, msg) {
   return make_token("Invalid", msg);
 }
 
+// Parses the full program
 fun parse_program() {
   let out = "(program";
   while (!check("Eof")) {
@@ -232,12 +253,29 @@ fun parse_program() {
   return out;
 }
 
+// Parses a declaration
 fun parse_declaration() {
+  if (match_tok("Import")) return parse_import_stmt();
   if (match_tok("Fun")) return parse_fun_decl();
   if (match_tok("Let")) return parse_let_stmt();
   return parse_stmt();
 }
 
+// Parses an import statement
+fun parse_import_stmt() {
+  let nameTok = make_token("Invalid", "");
+  if (check("String")) {
+    nameTok = advance_tok();
+    let s = "\"" + escape_string(tok_lex(nameTok)) + "\"";
+    consume("Semicolon", "Expected ';' after import");
+    return "(import " + s + ")";
+  }
+  nameTok = consume("Identifier", "Expected module name after import");
+  consume("Semicolon", "Expected ';' after import");
+  return "(import " + tok_lex(nameTok) + ")";
+}
+
+// Parses a function declaration
 fun parse_fun_decl() {
   let nameTok = consume("Identifier", "Expected function name");
   let name = tok_lex(nameTok);
@@ -268,6 +306,7 @@ fun parse_fun_decl() {
   return out;
 }
 
+// Parses a let statement
 fun parse_let_stmt() {
   let nameTok = consume("Identifier", "Expected identifier after let");
   consume("Equal", "Expected '=' after variable name");
@@ -276,12 +315,14 @@ fun parse_let_stmt() {
   return "(let " + tok_lex(nameTok) + " " + init + ")";
 }
 
+// Parses a print statement
 fun parse_print_stmt() {
   let e = parse_expr();
   consume("Semicolon", "Expected ';' after print");
   return "(print " + e + ")";
 }
 
+// Parses a block statement
 fun parse_block_stmt() {
   let out = "(block";
   while (!check("RightBrace") and !check("Eof")) {
@@ -292,6 +333,7 @@ fun parse_block_stmt() {
   return out;
 }
 
+// Parses an if statement
 fun parse_if_stmt() {
   consume("LeftParen", "Expected '(' after if");
   let cond = parse_expr();
@@ -304,6 +346,7 @@ fun parse_if_stmt() {
   return "(if " + cond + " " + thenS + ")";
 }
 
+// Parses a while statement
 fun parse_while_stmt() {
   consume("LeftParen", "Expected '(' after while");
   let cond = parse_expr();
@@ -312,6 +355,7 @@ fun parse_while_stmt() {
   return "(while " + cond + " " + body + ")";
 }
 
+// Parses a return statement
 fun parse_return_stmt() {
   if (check("Semicolon")) {
     advance_tok();
@@ -322,6 +366,7 @@ fun parse_return_stmt() {
   return "(return " + v + ")";
 }
 
+// Parses an assignment statement
 fun parse_assign_stmt() {
   let nameTok = consume("Identifier", "Expected identifier");
   consume("Equal", "Expected '=' in assignment");
@@ -330,12 +375,14 @@ fun parse_assign_stmt() {
   return "(assign " + tok_lex(nameTok) + " " + v + ")";
 }
 
+// Parses an expression statement
 fun parse_expr_stmt() {
   let e = parse_expr();
   consume("Semicolon", "Expected ';' after expression");
   return "(expr " + e + ")";
 }
 
+// Parses a statement
 fun parse_stmt() {
   if (match_tok("Print")) return parse_print_stmt();
   if (match_tok("If")) return parse_if_stmt();
@@ -346,8 +393,10 @@ fun parse_stmt() {
   return parse_expr_stmt();
 }
 
+// Parses an expression (starting with logical OR)
 fun parse_expr() { return parse_or(); }
 
+// Parses logical OR expression
 fun parse_or() {
   let e = parse_and();
   while (match_tok("Or")) {
@@ -358,6 +407,7 @@ fun parse_or() {
   return e;
 }
 
+// Parses logical AND expression
 fun parse_and() {
   let e = parse_equality();
   while (match_tok("And")) {
@@ -368,6 +418,7 @@ fun parse_and() {
   return e;
 }
 
+// Parses equality expression
 fun parse_equality() {
   let e = parse_comparison();
   while (match_tok("EqualEqual") or match_tok("BangEqual")) {
@@ -378,6 +429,7 @@ fun parse_equality() {
   return e;
 }
 
+// Parses comparison expression
 fun parse_comparison() {
   let e = parse_term();
   while (match_tok("Greater") or match_tok("GreaterEqual") or match_tok("Less") or match_tok("LessEqual")) {
@@ -388,6 +440,7 @@ fun parse_comparison() {
   return e;
 }
 
+// Parses addition/subtraction expression
 fun parse_term() {
   let e = parse_factor();
   while (match_tok("Plus") or match_tok("Minus")) {
@@ -398,6 +451,7 @@ fun parse_term() {
   return e;
 }
 
+// Parses multiplication/division expression
 fun parse_factor() {
   let e = parse_unary();
   while (match_tok("Star") or match_tok("Slash")) {
@@ -408,6 +462,7 @@ fun parse_factor() {
   return e;
 }
 
+// Parses unary expression
 fun parse_unary() {
   if (match_tok("Bang") or match_tok("Minus")) {
     let op = tok_lex(previous_tok());
@@ -417,6 +472,7 @@ fun parse_unary() {
   return parse_call();
 }
 
+// Parses function call expression
 fun parse_call() {
   let e = parse_primary();
   while (match_tok("LeftParen")) {
@@ -435,6 +491,7 @@ fun parse_call() {
   return e;
 }
 
+// Parses primary expression (literals, identifiers, groupings)
 fun parse_primary() {
   if (match_tok("Number")) return tok_lex(previous_tok());
   if (match_tok("String")) return "\"" + escape_string(tok_lex(previous_tok())) + "\"";

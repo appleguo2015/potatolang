@@ -1,0 +1,16 @@
+// Standard Potato IO Library
+
+// Print a value followed by a newline
+fun pio_println(x) {
+  print x;
+}
+
+// Print a value without a newline (using write builtin)
+fun pio_print(x) {
+  write(x);
+}
+
+// Return the entire input as a string
+fun pio_read_all() {
+  return input;
+}
