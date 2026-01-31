@@ -1,0 +1,73 @@
+import "pio.pt";
+
+// potato_ui module
+// Provides a TUI-based Window API
+
+// Constants for colors
+let UI_BLACK = 0;
+let UI_RED = 1;
+let UI_GREEN = 2;
+let UI_YELLOW = 3;
+let UI_BLUE = 4;
+let UI_MAGENTA = 5;
+let UI_CYAN = 6;
+let UI_WHITE = 7;
+
+// Clear the entire screen and move cursor to (1,1)
+fun ui_clear() {
+  write("\033[2J\033[H");
+}
+
+// Move cursor to (x, y). 1-based coordinates.
+fun ui_move(x, y) {
+  write("\033[" + to_string(y) + ";" + to_string(x) + "H");
+}
+
+// Reset text attributes
+fun ui_reset() {
+  write("\033[0m");
+}
+
+// Set foreground and background color
+// fg: 0-7, bg: 0-7
+fun ui_color(fg, bg) {
+  write("\033[3" + to_string(fg) + ";4" + to_string(bg) + "m");
+}
+
+// Draw a box with a title
+fun ui_draw_box(x, y, w, h, title) {
+  ui_move(x, y);
+  write("+" + "-" * (w - 2) + "+");
+  
+  let i = 1;
+  while (i < h - 1) {
+    ui_move(x, y + i);
+    write("|" + " " * (w - 2) + "|");
+    i = i + 1;
+  }
+  
+  ui_move(x, y + h - 1);
+  write("+" + "-" * (w - 2) + "+");
+  
+  if (len(title) > 0) {
+    ui_move(x + 2, y);
+    write(" " + title + " ");
+  }
+}
+
+// Draw text at a specific location
+fun ui_draw_text(x, y, text) {
+  ui_move(x, y);
+  write(text);
+}
+
+// Simple input box
+fun ui_input_box(x, y, prompt) {
+  ui_draw_box(x, y, 40, 3, prompt);
+  ui_move(x + 2, y + 1);
+  // Show cursor
+  write("\033[?25h");
+  let res = read_line();
+  // Hide cursor? No, keep it.
+  return res;
+}

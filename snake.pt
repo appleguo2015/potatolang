@@ -1,0 +1,114 @@
+// Game Config
+let GRID_W = 40;
+let GRID_H = 20;
+let CELL_SIZE = 20;
+let WIDTH = GRID_W * CELL_SIZE;
+let HEIGHT = GRID_H * CELL_SIZE;
+let SPEED = 100; // ms
+
+// State
+let snake_x = list();
+let snake_y = list();
+let dir_x = 1;
+let dir_y = 0;
+let food_x = 0;
+let food_y = 0;
+let score = 0;
+let running = true;
+
+// Init Snake (length 3)
+push(snake_x, 10); push(snake_y, 10);
+push(snake_x, 11); push(snake_y, 10);
+push(snake_x, 12); push(snake_y, 10);
+
+// Spawn Food
+fun spawn_food() {
+  food_x = int(random() * (GRID_W - 2)) + 1;
+  food_y = int(random() * (GRID_H - 2)) + 1;
+}
+spawn_food();
+
+// Init Graphics
+if (!graphics_init(WIDTH, HEIGHT, "Potato Snake")) {
+  print "Failed to init graphics";
+  running = false;
+}
+
+// Game Loop
+while (running) {
+  // Input Handling
+  let event = graphics_poll();
+  while (event != nil) {
+    if (event == "quit") { running = false; }
+    if (event == "Escape") { running = false; }
+    if (event == "Q") { running = false; }
+    
+    if (event == "W" or event == "Up") { if (dir_y == 0) { dir_x = 0; dir_y = -1; } }
+    if (event == "S" or event == "Down") { if (dir_y == 0) { dir_x = 0; dir_y = 1; } }
+    if (event == "A" or event == "Left") { if (dir_x == 0) { dir_x = -1; dir_y = 0; } }
+    if (event == "D" or event == "Right") { if (dir_x == 0) { dir_x = 1; dir_y = 0; } }
+    
+    event = graphics_poll();
+  }
+
+  // Logic
+  if (running) {
+    let head_x = get(snake_x, len(snake_x) - 1);
+    let head_y = get(snake_y, len(snake_y) - 1);
+    
+    let next_x = head_x + dir_x;
+    let next_y = head_y + dir_y;
+    
+    // Collision Wall
+    if (next_x < 0 or next_x >= GRID_W or next_y < 0 or next_y >= GRID_H) {
+      running = false;
+      print "Game Over: Wall Collision";
+    }
+    
+    // Collision Self
+    let i = 0;
+    while (i < len(snake_x)) {
+      if (get(snake_x, i) == next_x and get(snake_y, i) == next_y) {
+         running = false;
+         print "Game Over: Self Collision";
+      }
+      i = i + 1;
+    }
+    
+    if (running) {
+      push(snake_x, next_x);
+      push(snake_y, next_y);
+      
+      // Check Food
+      if (next_x == food_x and next_y == food_y) {
+        score = score + 1;
+        spawn_food();
+      } else {
+        remove_at(snake_x, 0);
+        remove_at(snake_y, 0);
+      }
+    }
+  }
+
+  // Render
+  graphics_color(0, 0, 0); // Black background
+  graphics_clear();
+  
+  // Draw Snake
+  graphics_color(0, 255, 0); // Green
+  let i = 0;
+  while (i < len(snake_x)) {
+    graphics_rect(get(snake_x, i) * CELL_SIZE, get(snake_y, i) * CELL_SIZE, CELL_SIZE - 2, CELL_SIZE - 2);
+    i = i + 1;
+  }
+  
+  // Draw Food
+  graphics_color(255, 0, 0); // Red
+  graphics_rect(food_x * CELL_SIZE, food_y * CELL_SIZE, CELL_SIZE - 2, CELL_SIZE - 2);
+  
+  graphics_present();
+  
+  sleep(SPEED);
+}
+
+print "Final Score: " + to_string(score);

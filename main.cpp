@@ -1,4 +1,5 @@
 #include <cctype>
+#include <chrono>
 #include <cstdlib>
 #include <functional>
 #include <fstream>
@@ -6,13 +7,29 @@
 #include <iostream>
 #include <memory>
 #include <optional>
+#include <random>
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <thread>
 #include <unordered_map>
 #include <utility>
 #include <variant>
 #include <vector>
+#include <cmath>
+
+#define SDL_MAIN_HANDLED
+#include <SDL2/SDL.h>
+
+// Global SDL variables
+static SDL_Window* g_window = nullptr;
+static SDL_Renderer* g_renderer = nullptr;
+
+#ifndef _WIN32
+#include <termios.h>
+#include <unistd.h>
+#include <fcntl.h>
+#endif
 
 namespace potatolang {
 
@@ -1023,6 +1040,15 @@ class Interpreter {
       l->items[static_cast<std::size_t>(i)] = args[2];
       return args[0];
     });
+
+    // Removes an item from a list by index.
+    add("remove_at", 2, [&](const std::vector<Value>& args) {
+      auto l = AsList(args[0]);
+      int i = static_cast<int>(AsNumber(args[1]));
+      if (i < 0 || i >= static_cast<int>(l->items.size())) throw RuntimeError("Index out of range");
+      l->items.erase(l->items.begin() + i);
+      return Value::Nil();
+    });
     
     // Returns the length of a string or list.
     add("len", 1, [&](const std::vector<Value>& args) {
@@ -1080,6 +1106,102 @@ class Interpreter {
       const std::string& s = AsString(args[0]);
       if (s.size() != 1) return Value::Bool(false);
       return Value::Bool(std::isalnum(static_cast<unsigned char>(s[0])) != 0 || s[0] == '_');
+    });
+
+    // Converts a number to an integer (truncates decimal part).
+    add("int", 1, [&](const std::vector<Value>& args) {
+      return Value::Number(static_cast<double>(static_cast<long long>(AsNumber(args[0]))));
+    });
+
+    // Reads a line from standard input.
+    add("read_line", 0, [&](const std::vector<Value>&) {
+      std::string line;
+      if (std::getline(std::cin, line)) {
+        return Value::Str(line);
+      }
+      return Value::Nil();
+    });
+
+    // Sleeps for N milliseconds.
+    add("sleep", 1, [&](const std::vector<Value>& args) {
+      int ms = static_cast<int>(AsNumber(args[0]));
+      if (ms > 0) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(ms));
+      }
+      return Value::Nil();
+    });
+    
+    // Returns a random number between 0 and 1.
+    add("random", 0, [&](const std::vector<Value>&) {
+      static std::mt19937 rng(std::random_device{}());
+      static std::uniform_real_distribution<double> dist(0.0, 1.0);
+      return Value::Number(dist(rng));
+    });
+    
+    // Returns current timestamp in seconds.
+    add("time", 0, [&](const std::vector<Value>&) {
+        auto now = std::chrono::system_clock::now();
+        auto duration = now.time_since_epoch();
+        double seconds = std::chrono::duration_cast<std::chrono::duration<double>>(duration).count();
+        return Value::Number(seconds);
+    });
+
+    // Initialize Graphics Window
+    add("graphics_init", 3, [&](const std::vector<Value>& args) {
+        int w = static_cast<int>(AsNumber(args[0]));
+        int h = static_cast<int>(AsNumber(args[1]));
+        std::string title = AsString(args[2]);
+        if (SDL_Init(SDL_INIT_VIDEO) < 0) return Value::Bool(false);
+        g_window = SDL_CreateWindow(title.c_str(), SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, w, h, SDL_WINDOW_SHOWN);
+        if (!g_window) return Value::Bool(false);
+        g_renderer = SDL_CreateRenderer(g_window, -1, SDL_RENDERER_ACCELERATED);
+        return Value::Bool(g_renderer != nullptr);
+    });
+
+    // Set Draw Color
+    add("graphics_color", 3, [&](const std::vector<Value>& args) {
+        int r = static_cast<int>(AsNumber(args[0]));
+        int g = static_cast<int>(AsNumber(args[1]));
+        int b = static_cast<int>(AsNumber(args[2]));
+        if (g_renderer) SDL_SetRenderDrawColor(g_renderer, r, g, b, 255);
+        return Value::Nil();
+    });
+
+    // Clear Screen
+    add("graphics_clear", 0, [&](const std::vector<Value>&) {
+        if (g_renderer) SDL_RenderClear(g_renderer);
+        return Value::Nil();
+    });
+
+    // Draw Rectangle
+    add("graphics_rect", 4, [&](const std::vector<Value>& args) {
+        if (g_renderer) {
+            SDL_Rect r;
+            r.x = static_cast<int>(AsNumber(args[0]));
+            r.y = static_cast<int>(AsNumber(args[1]));
+            r.w = static_cast<int>(AsNumber(args[2]));
+            r.h = static_cast<int>(AsNumber(args[3]));
+            SDL_RenderFillRect(g_renderer, &r);
+        }
+        return Value::Nil();
+    });
+
+    // Present (Update Screen)
+    add("graphics_present", 0, [&](const std::vector<Value>&) {
+        if (g_renderer) SDL_RenderPresent(g_renderer);
+        return Value::Nil();
+    });
+
+    // Poll Event
+    add("graphics_poll", 0, [&](const std::vector<Value>&) {
+        SDL_Event e;
+        if (SDL_PollEvent(&e)) {
+            if (e.type == SDL_QUIT) return Value::Str("quit");
+            if (e.type == SDL_KEYDOWN) {
+                return Value::Str(SDL_GetKeyName(e.key.keysym.sym));
+            }
+        }
+        return Value::Nil();
     });
   }
 
@@ -1251,7 +1373,17 @@ class Interpreter {
           if (IsString(left) && IsString(right)) return Value::Str(AsString(left) + AsString(right));
           throw RuntimeError("Operator + expects two numbers or two strings");
         case TokenType::Minus: return Value::Number(AsNumber(left) - AsNumber(right));
-        case TokenType::Star: return Value::Number(AsNumber(left) * AsNumber(right));
+        case TokenType::Star:
+          if (IsNumber(left) && IsNumber(right)) return Value::Number(AsNumber(left) * AsNumber(right));
+          if (IsString(left) && IsNumber(right)) {
+             std::string s = AsString(left);
+             int n = static_cast<int>(AsNumber(right));
+             std::string out;
+             out.reserve(s.size() * n);
+             for(int i=0; i<n; ++i) out += s;
+             return Value::Str(out);
+          }
+          throw RuntimeError("Operator * expects two numbers or string and number");
         case TokenType::Slash: return Value::Number(AsNumber(left) / AsNumber(right));
         case TokenType::Greater: return Value::Bool(AsNumber(left) > AsNumber(right));
         case TokenType::GreaterEqual: return Value::Bool(AsNumber(left) >= AsNumber(right));
@@ -1435,7 +1567,7 @@ int main(int argc, char** argv) {
       }
       
       // Compile the temporary file
-      std::string cmd = "clang++ -std=c++17 -DPOTATO_STANDALONE -o " + outputPath + " " + tempFile;
+      std::string cmd = "clang++ -std=c++17 -DPOTATO_STANDALONE -o " + outputPath + " " + tempFile + " $(pkg-config --cflags --libs sdl2)";
       int ret = std::system(cmd.c_str());
       
       // Clean up

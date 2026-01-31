@@ -1,20 +1,27 @@
 # potatolang
 
-这是一个用 C++ 实现的 Potatolang 解释器与编译器。它不仅支持生成 AST，还支持直接解释执行以及编译为独立二进制文件。
+这是一个用 C++ 实现的 Potatolang 解释器与编译器。它不仅支持生成 AST，还支持直接解释执行以及编译为独立二进制文件。最新版本集成了 SDL2，支持图形化界面开发。
 
 ## 构建
 
-### 使用 CMake
+### 前置依赖
 
+需要安装 SDL2 开发库：
+
+**macOS (Homebrew):**
 ```bash
-cmake -S . -B build
-cmake --build build -j
+brew install sdl2 pkg-config
 ```
 
-### 直接编译
+**Ubuntu/Debian:**
+```bash
+sudo apt-get install libsdl2-dev
+```
+
+### 编译 Potatolang
 
 ```bash
-clang++ -std=c++17 -o potatolang main.cpp
+clang++ -std=c++17 main.cpp -o potatolang $(pkg-config --cflags --libs sdl2)
 ```
 
 ## 使用方法
@@ -38,7 +45,7 @@ clang++ -std=c++17 -o potatolang main.cpp
 
 ### 2. 编译为独立二进制
 
-将脚本编译为可独立运行的可执行文件（无需依赖 `potatolang` 主程序，但可能依赖标准库文件如 `pio.pt`）：
+将脚本编译为可独立运行的可执行文件（自动链接 SDL2）：
 
 ```bash
 ./potatolang script.pt --out binary_name
@@ -47,8 +54,9 @@ clang++ -std=c++17 -o potatolang main.cpp
 示例：
 
 ```bash
-./potatolang hw.pt --out hw
-./hw
+# 编译并运行贪吃蛇游戏
+./potatolang snake.pt --out snake
+./snake
 ```
 
 ### 3. 解析并输出 AST
@@ -59,53 +67,54 @@ clang++ -std=c++17 -o potatolang main.cpp
 ./potatolang script.pt
 ```
 
-或者从标准输入读取：
-
-```bash
-echo 'print "hello";' | ./potatolang
-```
-
 ## 语言特性
 
 ### 关键字
-
 - 变量与函数: `let`, `fun`, `return`
 - 控制流: `if`, `else`, `while`
 - 模块与IO: `import`, `print`
 - 逻辑运算: `true`, `false`, `nil`, `and`, `or`
 
-### 语法示例
+### 内置函数
 
-```potato
-// 导入库
-import "pio.pt";
+#### 图形界面 (SDL2)
+- `graphics_init(width, height, title)`: 初始化窗口，返回布尔值。
+- `graphics_clear()`: 清空屏幕。
+- `graphics_color(r, g, b)`: 设置绘图颜色 (0-255)。
+- `graphics_rect(x, y, w, h)`: 绘制实心矩形。
+- `graphics_present()`: 更新屏幕显示。
+- `graphics_poll()`: 获取按键事件（返回 "Up", "Down", "Left", "Right", "W", "A", "S", "D", "Q", "Escape", "quit" 或 nil）。
 
-// 定义递归函数
-fun fib(n) {
-  if (n < 2) return n;
-  return fib(n - 1) + fib(n - 2);
-}
+#### 系统与工具
+- `sleep(ms)`: 暂停指定毫秒数。
+- `random()`: 返回 0.0 到 1.0 之间的随机数。
+- `time()`: 返回当前时间戳（秒）。
+- `read_line()`: 从标准输入读取一行。
+- `int(value)`: 将数值或字符串转换为整数。
 
-// 变量定义与控制流
-let x = 10;
-if (x > 5) {
-  pio_println("Result: " + fib(x));
-}
+#### 列表操作
+- `list()`: 创建空列表。
+- `push(lst, val)`: 向列表追加元素。
+- `get(lst, idx)`: 获取列表元素。
+- `set(lst, idx, val)`: 修改列表元素。
+- `len(lst)`: 获取列表长度。
+- `remove_at(lst, idx)`: 删除指定索引的元素。
+
+#### 字符串操作
+- 支持字符串拼接 `+` 和重复 `*` (例如 `"a" * 3` 得到 `"aaa"`)。
+- `to_string(val)`: 将值转换为字符串。
+
+### 示例：贪吃蛇
+
+项目中包含一个完整的图形化贪吃蛇游戏示例 `snake.pt`。
+
+```bash
+./potatolang --run snake.pt
 ```
 
-## AST 输出格式
+或者编译后运行：
 
-AST 输出形如 S-expression：
-
-```lisp
-(program <stmt> <stmt> ...)
+```bash
+./potatolang snake.pt --out snake
+./snake
 ```
-
-常见节点：
-
-- `(let name <expr>)`
-- `(fun name (params ...) <body>)`
-- `(if <cond> <then> <else>)`
-- `(while <cond> <body>)`
-- `(block <stmt> ...)`
-- `(call <callee> <args> ...)`
