@@ -1,0 +1,9 @@
+// aPpLegUo
+// appleguo is potato!!!
+fun appleguo_is_(x){
+  if(x == "potato"){
+    return true;
+  } else {
+    return nil;
+  }
+}
