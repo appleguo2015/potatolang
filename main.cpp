@@ -1750,8 +1750,14 @@ int main(int argc, char** argv) {
       // Replace the placeholder with the actual script
       ReplaceAll(compilerSource, "{{SCRIPT_CONTENT}}", script);
       
+      // Generate a safe temporary filename
+      std::string safeName = outputPath;
+      for (char& c : safeName) {
+          if (c == '/' || c == '\\' || c == '.') c = '_';
+      }
+      std::string tempFile = "temp_build_" + safeName + ".cpp";
+      
       // Write to a temporary file
-      std::string tempFile = "temp_build_" + outputPath + ".cpp";
       {
           std::ofstream out(tempFile);
           out << compilerSource;
