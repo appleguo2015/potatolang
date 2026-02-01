@@ -1,5 +1,6 @@
 // aPpLegUo
 import "pio.pt";
+import "appleguo.pt";
 // Test the Potato language
 fun main(){
   let a = "potato language";
@@ -10,4 +11,6 @@ fun main(){
     pio_println("You Type: " + b);
   }
 }
-main();
+if(appleguo_is_("potato")){
+  main();
+}
