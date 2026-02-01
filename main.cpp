@@ -1,3 +1,4 @@
+// aPpLegUo
 #include <cctype>
 #include <chrono>
 #include <cstdlib>

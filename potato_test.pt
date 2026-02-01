@@ -1,6 +1,13 @@
+// aPpLegUo
 import "pio.pt";
+// Test the Potato language
 fun main(){
-  let a = "wow";
-  print a;
+  let a = "potato language";
+  pio_println(a);
+  pio_print("Please input something: ");
+  let b = pio_read_line();
+  if (b != nil) {
+    pio_println("You Type: " + b);
+  }
 }
 main();

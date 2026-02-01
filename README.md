@@ -109,7 +109,7 @@ clang++ -std=c++17 tomato/main.cpp -o tomato/tomato $(pkg-config --cflags --libs
 - `pio_read_line()`: 从标准输入读取一行。
 
 使用方式：
-```javascript
+```potato
 import "pio.pt";
 pio_println("Hello World");
 ```
